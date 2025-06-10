@@ -1,89 +1,127 @@
-const express = require('express');
-const app = express();
-const PORT = 3000;
+// DOM Elements
+const taskForm = document.getElementById('taskForm');
+const taskInput = document.getElementById('taskInput');
+const taskList = document.getElementById('taskList');
 
-// Middleware
-app.use(express.json());
-app.use(express.static('public')); // Serve static files from public folder
+// API Base URL - Updated for Vercel deployment
+const API_URL = '/api/tasks'; // Uses relative path for Vercel
 
-// Enable CORS (for development)
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
-});
+// Load tasks when page loads
+document.addEventListener('DOMContentLoaded', loadTasks);
 
-// In-memory "database"
-let tasks = [
-    { id: 1, title: 'Learn Express', completed: false },
-    { id: 2, title: 'Build API', completed: false }
-];
-let nextId = 3;
-
-// Routes
-
-// GET all tasks
-app.get('/tasks', (req, res) => {
-    res.json(tasks);
-});
-
-// GET a single task
-app.get('/tasks/:id', (req, res) => {
-    const task = tasks.find(t => t.id === parseInt(req.params.id));
-    if (!task) return res.status(404).json({ error: 'Task not found' });
-    res.json(task);
-});
-
-// POST a new task
-app.post('/tasks', (req, res) => {
-    if (!req.body.title) {
-        return res.status(400).json({ error: 'Title is required' });
+// Form submission handler
+taskForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = taskInput.value.trim();
+    
+    if (title) {
+        await addTask(title);
+        taskInput.value = ''; // Clear input
+        await loadTasks(); // Refresh the list
     }
-
-    const task = {
-        id: nextId++,
-        title: req.body.title,
-        completed: req.body.completed || false
-    };
-    tasks.push(task);
-    res.status(201).json(task);
 });
 
-// PUT (update) a task
-app.put('/tasks/:id', (req, res) => {
-    const task = tasks.find(t => t.id === parseInt(req.params.id));
-    if (!task) return res.status(404).json({ error: 'Task not found' });
-
-    if (req.body.title !== undefined) {
-        task.title = req.body.title;
+// Fetch all tasks
+async function loadTasks() {
+    try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const tasks = await response.json();
+        
+        taskList.innerHTML = ''; // Clear current list
+        
+        if (tasks.length === 0) {
+            taskList.innerHTML = '<p>No tasks found. Add one above!</p>';
+            return;
+        }
+        
+        tasks.forEach(task => {
+            const taskElement = document.createElement('div');
+            taskElement.className = `task ${task.completed ? 'completed' : ''}`;
+            taskElement.innerHTML = `
+                <span>${task.title}</span>
+                <div>
+                    <button onclick="toggleTask(${task.id}, ${task.completed})">
+                        ${task.completed ? 'Undo' : 'Complete'}
+                    </button>
+                    <button onclick="deleteTask(${task.id})">Delete</button>
+                </div>
+            `;
+            taskList.appendChild(taskElement);
+        });
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        taskList.innerHTML = '<p>Error loading tasks. Please try again later.</p>';
     }
-    if (req.body.completed !== undefined) {
-        task.completed = req.body.completed;
+}
+
+// Add a new task
+async function addTask(title) {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ title, completed: false })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to add task: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error adding task:', error);
+        alert('Failed to add task. Please try again.');
     }
+}
 
-    res.json(task);
-});
+// Toggle task completion status
+async function toggleTask(id, currentStatus) {
+    try {
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ completed: !currentStatus })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update task: ${response.status}`);
+        }
+        
+        await loadTasks(); // Refresh the list
+    } catch (error) {
+        console.error('Error updating task:', error);
+        alert('Failed to update task. Please try again.');
+    }
+}
 
-// DELETE a task
-app.delete('/tasks/:id', (req, res) => {
-    const taskIndex = tasks.findIndex(t => t.id === parseInt(req.params.id));
-    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+// Delete a task
+async function deleteTask(id) {
+    try {
+        if (!confirm('Are you sure you want to delete this task?')) return;
+        
+        const response = await fetch(`${API_URL}/${id}`, { 
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to delete task: ${response.status}`);
+        }
+        
+        await loadTasks(); // Refresh the list
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Failed to delete task. Please try again.');
+    }
+}
 
-    const deletedTask = tasks.splice(taskIndex, 1)[0];
-    res.json(deletedTask);
-});
-
-// Serve index.html for the root route
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
-});
-
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`API Endpoints:`);
-    console.log(`- GET /tasks - Get all tasks`);
-    console.log(`- POST /tasks - Create new task`);
-    console.log(`- PUT /tasks/:id - Update task`);
-    console.log(`- DELETE /tasks/:id - Delete task`);
-});
+// Make functions available in global scope
+window.toggleTask = toggleTask;
+window.deleteTask = deleteTask;
