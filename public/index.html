@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .task { background: #f4f4f4; margin: 5px; padding: 10px; border-radius: 5px; }
+        .completed { text-decoration: line-through; color: #888; }
+        form { margin: 20px 0; }
+        input, button { padding: 8px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Task Manager</h1>
+    
+    <!-- Add Task Form -->
+    <form id="taskForm">
+        <input type="text" id="taskInput" placeholder="New task" required>
+        <button type="submit">Add Task</button>
+    </form>
+    
+    <!-- Task List -->
+    <div id="taskList"></div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
